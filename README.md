@@ -1,160 +1,275 @@
-# Solar Panel Site Analyzer
+# Solar Panel Site Analyzer (`DATASEE.AI`)
 
-A full-stack spatial analysis web application for screening, scoring, and comparing candidate utility-scale solar panel installation sites. Built for the **Datasee.AI Full Stack Developer Technical Assessment** using **Angular**, **Django REST Framework**, **MySQL 8.0**, **Leaflet**, and **Chart.js**.
+A full-stack geospatial decision-support web application built with **Django 5.1**, **Django REST Framework**, **MySQL**, **Angular 22**, **Leaflet**, and **Chart.js** for pre-construction utility-scale solar site suitability screening across Tamil Nadu (Coimbatore, Tiruppur, Erode, Pollachi, Udumalpet, and surrounding regions).
 
 ---
 
-## Key Features
+## Live Application & Demo Access
 
-### Core Capabilities
-- **Spatial Dataset Ingestion:** Load the provided 50-site Tamil Nadu dataset via CLI (`seed_solar_sites`) or upload new `.csv` datasets directly from the UI (`POST /api/sites/upload/`).
-- **Weighted Suitability Scoring Engine:** Evaluates each site (`0–100`) across Solar Irradiance, Available Land Area, Power Grid Proximity, Terrain Slope, and Road/Infrastructure Proximity.
-- **Interactive GIS Map (Leaflet):** Color-coded, capacity-scaled site markers with **Street**, **Satellite**, and **Topographic** base-layer switching, suitability legend, and click-to-inspect details.
-- **Filtering, Searching & Sorting:** Filter dynamically by minimum suitability score, region, land type, and keyword search; sort by score, area, irradiance, grid distance, slope, or name.
-- **Site Engineering Detail Drawer:** Displays rank, category, estimated capacity (`MW`), area (`m²` & `acres`), pre-construction risk flags, and a Chart.js factor breakdown chart.
-- **Analytics Dashboard:** Executive KPI cards, suitability distribution bar chart, land-type comparison chart, Top 10 recommended sites table, and **CSV / JSON export**.
-- **Responsive Design:** Adapts cleanly across desktop split-screen and mobile/tablet layouts.
+| Resource | URL |
+| :--- | :--- |
+| **Live Web App** | https://dataseeai-production.up.railway.app/ |
+| **Django Admin Panel** | https://dataseeai-production.up.railway.app/admin/ |
+| **OpenAPI / Swagger Docs** | https://dataseeai-production.up.railway.app/api/docs/ |
+| **Health Check** | https://dataseeai-production.up.railway.app/api/health/ |
 
-### Bonus Capabilities Implemented
-- **Real-Time Weight Tuner:** Adjust all 5 factor weights with live `100%` validation in **Preview** (non-persisted) or **Apply & Save** (persisted snapshot) modes.
-- **Custom Polygon Zone Analysis:** Draw custom polygons directly on the Leaflet map to compute site count, average score, total area, and total MW within the boundary.
-- **Multi-Site Comparison:** Pin up to 3 sites for side-by-side metric comparison and an overlaid Chart.js radar chart.
-- **Performance Caching:** Versioned in-memory caching for `/api/statistics/` with automatic invalidation on weight recalculation or CSV upload.
-- **Automated Tests & Swagger Docs:** Django unit/API test suite, Angular Vitest unit tests, and OpenAPI/Swagger UI at `/api/docs/`.
+### Demo Login Credentials
+
+The application opens to a full-screen video-backed JWT sign-in experience. Use the following credentials to sign in (both in the web app and Django Admin):
+
+- **Username:** `admin`
+- **Password:** `12345`
+
+---
+
+## Implemented Features
+
+### Authentication & Branding
+- **JWT Login-Only Screen (`AuthScreenComponent`):** Full-screen background video (`hero.mp4` with `datasee-hero-poster.png` fallback), Datasee.AI branding, dark glass login card, password visibility toggle, and automatic JWT token attachment/refresh (`AuthInterceptor` + `AuthService`).
+- **Django Admin & API Docs:** Integrated Django Admin (`/admin/`) and interactive OpenAPI 3 / Swagger UI (`/api/docs/` via `drf-spectacular`).
+- **Custom Favicon & Social Share Preview:** Official Datasee.AI favicon (`favicon.ico`) and Open Graph / Twitter metadata (`og-share.jpg`) for link previews on WhatsApp and social platforms.
+
+### Spatial Exploration & Suitability Scoring
+- **Interactive Leaflet GIS Map:** Renders sites as capacity-scaled (`sqrt(capacity_mw)`), suitability-tier color-coded markers across **Esri World Street Map**, **Esri World Imagery (Satellite)**, and **Esri World Topographic Map** base layers.
+- **Weighted Suitability Scoring Engine:** Computes transparent component scores (`irradiance`, `grid`, `slope`, `road`, `elevation`), total weighted score (`0–100`), suitability category, estimated generation (`MWh/yr`), CO₂ offset (`tonnes/yr`), and competition rank.
+- **Interactive Weight Tuner:** Adjust the 5 criteria weights (`solar_irradiance`, `grid_proximity`, `slope`, `road_access`, `elevation`), enforce exact `100%` sum validation, run live **Preview Recalculation**, or **Save & Persist** globally for authenticated users.
+- **Dynamic Filtering & Sorting:** Filter by search query (site name or region), minimum suitability score, land type, and region; sort ascending/descending by suitability score, solar irradiance, capacity, grid distance, or area.
+- **Polygon Zone Analysis:** Click **Draw Analysis Zone** directly on the map to define an arbitrary polygon and compute zone statistics (`sites_in_zone`, `average_score`, `total_capacity_mw`, `total_area_sqm`) using server-side ray-casting.
+- **Multi-Site Comparison & Detail Drawer:** Inspect site factor breakdowns, capacity metrics, solar telemetry charts, and quick links to **Edit Site** or **Delete Site**, or select multiple sites for side-by-side comparison.
+
+### Site CRUD, CSV Preview Import & Data Export
+- **Add / Edit / Delete Site Workflow (`SiteFormComponent`):** Dedicated navigation tab (`+ Add Site`) supporting full site creation, editing pre-filled sites from the detail drawer, live suitability score preview, and site deletion (with confirmation).
+- **CSV Upload with Preview Before Confirm (`CsvUploadModalComponent`):** Upload a `.csv` dataset (up to `5 MB`) for dry-run backend validation (`preview=true`), inspect valid/invalid row previews before writing to MySQL, confirm import, or download the bundled template (`sample_solar_sites.csv`).
+- **Right-Aligned Workspace Actions & Responsive Layout:** Desktop single-row navbar with right-aligned **Upload / Export** dropdown (`Upload CSV`, `Export CSV`, `Export JSON`) alongside user status/logout; mobile-first responsive layout with fixed bottom navigation and a **Tools** menu.
+- **Safe Data Exports:** Export filtered datasets as formula-injection-safe **CSV** or **JSON**.
 
 ---
 
 ## Tech Stack
 
-- **Frontend:** Angular (TypeScript, Standalone Components, Signals), Leaflet, Chart.js, SCSS
-- **Backend:** Python 3.13, Django, Django REST Framework, `django-cors-headers`, `drf-spectacular`
-- **Database:** MySQL 8.0 (`sites`, `analysis_parameters`, `analysis_results`, `sites_with_scores` view, `calculate_suitability_scores()` procedure, `get_site_rank()` function)
+| Layer | Technology |
+| :--- | :--- |
+| **Backend API** | Python 3.13, Django 5.1.15, Django REST Framework 3.15.2 |
+| **Authentication & Docs** | `djangorestframework-simplejwt` 5.5.1, `drf-spectacular` 0.28.0 |
+| **Database** | MySQL (`mysqlclient` 2.2.8) |
+| **Production Serving** | Gunicorn, WhiteNoise (`Dockerfile` multi-stage build) |
+| **Frontend SPA** | Angular 22.3.0, TypeScript, SCSS |
+| **Maps & Charts** | Leaflet 1.9.4 (Esri ArcGIS tiles), Chart.js 4.6.2 |
+| **Frontend Tests** | Vitest (`npx ng test --watch=false`) |
 
 ---
 
-## Architecture Overview
+## System Architecture
 
 ```mermaid
 flowchart LR
-    U[User Browser: Desktop / Mobile] --> NG[Angular SPA :4200]
-    NG --> MAP[Leaflet Map + Polygon Draw]
-    NG --> DASH[Chart.js Dashboard + Site Compare]
-    NG --> CTRL[Filter Sidebar + Weight Tuner]
-    NG -->|REST JSON / Blob / FormData| DRF[Django REST Framework :8000]
-    DRF --> SER[DRF Serializers & Input Validation]
-    SER --> SVC[Services: scoring.py, site_queries.py, csv_importer.py, export_service.py]
-    SVC --> CACHE[Django LocMemCache]
-    SVC --> DB[(MySQL 8.0)]
+    Browser["Angular 22 SPA<br/>(Leaflet + Chart.js + JWT Auth)"] -->|HTTPS /api/*| Django["Gunicorn + WhiteNoise + Django 5.1 + DRF"]
+    Django -->|SuitabilityCalculator / Polygon Ray-Cast / CSV Preview| Service["sites_api.services"]
+    Service -->|ORM & Parameterized Queries| MySQL[("MySQL Database")]
+    Django -->|Static SPA Bundle| Browser
 ```
 
-### Repository Structure
+---
+
+## Repository Structure
 
 ```text
-D:\Assessment\
+.
+├── Dockerfile                         # Single-service build: Angular dist + Django + Gunicorn
+├── .dockerignore
+├── .gitignore
 ├── README.md
-├── Backend\
-│   ├── requirements.txt
-│   └── datasee_backend\
-│       ├── .env.example
+├── Backend/
+│   └── datasee_backend/
 │       ├── manage.py
-│       ├── sql\
-│       │   ├── database_schema.sql
-│       │   └── solar_sites_data.csv
-│       ├── datasee_backend\          # Django project settings & root URLs
-│       └── sites_api\                # Models, serializers, services, views, tests, seeder
-└── Frontend\
-    ├── angular.json
+│       ├── requirements.txt
+│       ├── start.sh                   # Runtime startup: schema ensure, migrate, seed, gunicorn
+│       ├── datasee_backend/
+│       │   ├── settings.py
+│       │   ├── urls.py
+│       │   └── wsgi.py
+│       └── sites_api/
+│           ├── admin.py
+│           ├── urls.py
+│           ├── management/commands/
+│           │   ├── ensure_schema.py
+│           │   └── seed_solar_sites.py
+│           ├── models/
+│           │   ├── SiteModel.py
+│           │   ├── AnalysisParameterModel.py
+│           │   └── AnalysisResultModel.py
+│           ├── serializers/
+│           │   ├── AuthSerializer.py
+│           │   └── SiteSerializer.py
+│           ├── services/
+│           │   ├── scoring.py
+│           │   ├── site_queries.py
+│           │   ├── csv_importer.py
+│           │   └── export_service.py
+│           ├── views/
+│           │   ├── AuthViews.py
+│           │   ├── SiteViews.py
+│           │   ├── AnalysisViews.py
+│           │   └── ExportViews.py
+│           └── tests/
+│               └── test_scoring.py
+└── Frontend/
+    ├── README.md
     ├── package.json
-    └── src\
-        ├── environments\
-        └── app\
-            ├── models\               # TypeScript API contracts
-            ├── services\             # SolarApiService (HttpClient)
-            └── components\           # Navbar, FilterSidebar, WeightTuner, SolarMap,
-                                      # SiteDetailDrawer, AnalyticsDashboard, SiteCompare, CsvUploadModal
+    ├── angular.json
+    ├── public/
+    │   ├── favicon.ico
+    │   ├── og-share.jpg
+    │   ├── datasee-hero-poster.png
+    │   ├── datasee-logo-black.svg
+    │   ├── datasee-logo-white.svg
+    │   ├── hero.mp4
+    │   └── sample_solar_sites.csv
+    └── src/
+        ├── index.html
+        ├── styles.scss
+        ├── environments/
+        │   ├── environment.ts
+        │   └── environment.prod.ts
+        └── app/
+            ├── app.ts
+            ├── app.config.ts
+            ├── app.spec.ts
+            ├── interceptors/auth.interceptor.ts
+            ├── services/auth.service.ts
+            └── components/
+                ├── auth-screen/
+                ├── navbar/
+                ├── solar-map/
+                ├── filter-sidebar/
+                ├── weight-tuner/
+                ├── site-detail-drawer/
+                ├── analytics-dashboard/
+                ├── site-compare/
+                ├── site-form/
+                └── csv-upload-modal/
 ```
 
 ---
 
-## Spatial Suitability Formula
+## Suitability Scoring Model
 
-Total Suitability Score (`0–100`):
+Each candidate site receives component scores normalized to `0–100`:
 
-```text
-Total Score = (solar_score * 0.35)
-            + (area_score * 0.25)
-            + (grid_distance_score * 0.20)
-            + (slope_score * 0.15)
-            + (infrastructure_score * 0.05)
-```
+1. **Solar Irradiance (`35%` default):** Scaled between `4.0` and `7.0 kWh/m²/day`.
+2. **Grid Proximity (`25%` default):** Best at `0 km`, decaying toward `20 km`.
+3. **Terrain Slope (`15%` default):** Flat terrain (`<= 2°`) scores `100`, decaying toward `15°`.
+4. **Road Access (`15%` default):** Best at `0 km`, decaying toward `10 km`.
+5. **Elevation (`10%` default):** Optimal around `300 m`, decaying with distance from optimal up to `1500 m`.
 
-| Factor | Optimal (`100`) | Minimum (`0`) | Intermediate Scaling |
-| :--- | :--- | :--- | :--- |
-| **Solar Irradiance** (`kWh/m²/day`) | `>= 5.5` | `< 3.0` | Linear `3.0 → 5.5` |
-| **Available Area** (`m²`) | `>= 50,000` | `< 5,000` | Linear `5,000 → 50,000` |
-| **Grid Distance** (`km`) | `<= 1.0` | `>= 20.0` | Inverse linear `1.0 → 20.0` |
-| **Terrain Slope** (`degrees`) | `<= 5.0` | `> 20.0` | Piecewise: `5–15°` (`100 → 50`), `15–20°` (`50 → 0`) |
-| **Road / Infrastructure** (`km`) | `<= 0.5` | `>= 5.0` | Inverse linear `0.5 → 5.0` |
-
-**Classification Tiers:** `80–100` Excellent (`#16a34a`) · `60–79` Good (`#65a30d`) · `40–59` Fair (`#eab308`) · `20–39` Poor (`#f97316`) · `0–19` Very Poor (`#dc2626`).
+Derived solar energy estimates:
+- `usable_area_ratio = 0.70`, `panel_power_density_kw_per_sqm = 0.18`, `performance_ratio = 0.80`
+- `estimated_capacity_mw = (area_sqm * 0.70 * 0.18) / 1000`
+- `estimated_annual_generation_mwh = estimated_capacity_mw * solar_irradiance_kwh * 365 * 0.80`
+- `estimated_co2_offset_tonnes = estimated_annual_generation_mwh * 0.70`
 
 ---
 
-## Setup & Running Locally
+## Local Development Setup
 
 ### Prerequisites
-- Python `3.11+`
+- Python `3.12+` / `3.13`
+- Node.js `20+` and npm
 - MySQL Server `8.0+`
-- Node.js `20+` & npm
 
-### 1. Database Setup (MySQL 8.0)
-Create the target schema using the provided SQL script (`Backend\datasee_backend\sql\database_schema.sql`):
+### 1. Backend Setup (`Backend/datasee_backend`)
 
-```powershell
-cd Backend\datasee_backend
-mysql -u root -p < .\sql\database_schema.sql
+```bash
+cd Backend/datasee_backend
+python -m venv ../../venv
+# Windows PowerShell: ..\..\venv\Scripts\Activate.ps1
+# macOS/Linux: source ../../venv/bin/activate
+pip install -r requirements.txt
 ```
 
-> **Note:** `database_schema.sql` defaults to `CREATE DATABASE IF NOT EXISTS solar_site_analyzer; USE solar_site_analyzer;`. If you configure a different database name in `.env` / `settings.py` (such as `dataseesite`), create that database and execute `database_schema.sql` inside it.
+Create a local `.env` file inside `Backend/datasee_backend/.env` with your local MySQL configuration:
 
-### 2. Backend Setup (Django REST Framework)
+```env
+SECRET_KEY=your-local-django-secret
+DEBUG=True
+DB_NAME=dataseesite
+DB_USER=root
+DB_PASSWORD=your-mysql-password
+DB_HOST=127.0.0.1
+DB_PORT=3306
+```
 
-```powershell
-cd Backend
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+Initialize schema, apply migrations, create a login user, seed solar sites, and start the server:
 
-cd datasee_backend
-copy .env.example .env
-# Edit .env (or DATABASES in datasee_backend\settings.py) with your MySQL credentials
-
+```bash
+python manage.py ensure_schema
 python manage.py migrate
-python manage.py seed_solar_sites
+python manage.py createsuperuser --username admin --email admin@example.com
+python manage.py seed_solar_sites --file data/solar_sites_raw.csv
 python manage.py runserver 8000
 ```
 
-- **Backend API Base:** `http://localhost:8000/api/`
-- **Interactive Swagger Docs:** `http://localhost:8000/api/docs/`
+> Use password `12345` when running `createsuperuser` if you want local login credentials to match the documented demo account.
 
-### 3. Frontend Setup (Angular)
+### 2. Frontend Setup (`Frontend`)
 
-```powershell
+```bash
 cd Frontend
 npm install
 npm start
 ```
 
-- **Frontend App URL:** `http://localhost:4200`
+Open `http://localhost:4200/` in your browser (uses `src/environments/environment.ts` -> `http://localhost:8000/api`).
 
-### 4. Running Tests
+---
 
-```powershell
-# Backend unit & API tests
-cd Backend\datasee_backend
-python manage.py test sites_api --verbosity=2
+## Production Deployment (Docker / Railway)
 
-# Frontend production build & Vitest unit tests
+The root [`Dockerfile`](Dockerfile) builds both tiers into a single deployable container:
+1. Builds the Angular production bundle (`npm run build`, using `src/environments/environment.prod.ts` with `apiBaseUrl: '/api'`).
+2. Installs Python dependencies from `Backend/datasee_backend/requirements.txt`.
+3. Copies Angular `dist/solar-site-analyzer/browser` assets into Django static files (`collectstatic`) and serves both the SPA and `/api/` endpoints via Gunicorn + WhiteNoise.
+4. Executes `Backend/datasee_backend/start.sh` on startup to ensure MySQL schema, run migrations, optionally seed demo data (`AUTO_SEED_SAMPLE_DATA`), and launch Gunicorn.
+
+---
+
+## API Reference
+
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/login/` | Public | Obtain JWT `access` & `refresh` tokens + user profile |
+| `POST` | `/api/auth/register/` | Public | Register a new user account & issue JWT tokens |
+| `POST` | `/api/auth/refresh/` | Public | Refresh expired JWT `access` token |
+| `GET` | `/api/auth/me/` | Bearer JWT | Get current authenticated user info |
+| `GET` | `/api/health/` | Public | Service health status and total seeded site count |
+| `GET` | `/api/sites/` | Public | List filtered, sorted, paginated sites (`limit`, `offset`, `search`, `min_score`, `land_type`, `region`, `sort_by`, `sort_order`) |
+| `POST` | `/api/sites/` | Bearer JWT | Create a new solar site and compute its suitability score |
+| `GET` | `/api/sites/{site_id}/` | Public | Retrieve detailed metrics for a single site |
+| `PUT` / `PATCH` | `/api/sites/{site_id}/` | Bearer JWT | Update an existing site and recalculate suitability score |
+| `DELETE` | `/api/sites/{site_id}/` | Bearer JWT | Delete a site |
+| `POST` | `/api/sites/upload/` | Bearer JWT | Upload `.csv` dataset; supports `?preview=true` dry-run validation before commit |
+| `GET` | `/api/statistics/` | Public | Aggregate KPIs, category distribution, region stats, and top sites |
+| `GET` | `/api/weights/` | Public | Fetch active scoring parameter weights |
+| `POST` | `/api/analyze/` | Public (preview) / JWT (`persist=true`) | Recalculate site scores with custom weights (`sum == 1.0`) |
+| `POST` | `/api/analyze/polygon/` | Public | Compute site suitability statistics inside a drawn polygon |
+| `GET` | `/api/export/` | Public | Export filtered sites (`format=csv` or `format=json`) |
+
+---
+
+## Verification & Testing
+
+Run Django checks, OpenAPI schema validation, and backend unit tests:
+
+```bash
+cd Backend/datasee_backend
+python manage.py check
+python manage.py spectacular --validate
+python manage.py test sites_api.tests.test_scoring
+```
+
+Run Frontend production build and Vitest unit tests:
+
+```bash
 cd Frontend
 npm run build
 npx ng test --watch=false
@@ -162,75 +277,8 @@ npx ng test --watch=false
 
 ---
 
-## API Reference
+## Known Limitations & Future Scope
 
-| Method & Endpoint | Description | Query / Request Parameters |
-| :--- | :--- | :--- |
-| `GET /api/health/` | Database & service health check | — |
-| `GET /api/sites/` | List scored sites with filtering, sorting & pagination | `min_score`, `max_score`, `region`, `land_type`, `search`, `sort_by`, `sort_order`, `limit`, `offset` |
-| `GET /api/sites/{site_id}/` | Detailed site metrics, 5-factor breakdown, weighted contributions & global rank | Path: `site_id` (`404` if not found) |
-| `POST /api/analyze/` | Recalculate scores with custom weights (`sum == 1.0 ± 0.001`) | `{ "weights": { "solar": 0.4, "area": 0.3, "grid": 0.15, "slope": 0.1, "infrastructure": 0.05 }, "persist": true }` |
-| `POST /api/analyze/polygon/` | Filter & summarize sites inside a custom polygon | `{ "polygon": [[lat, lon], ...] }` (min 3 vertices) |
-| `GET /api/weights/` | Retrieve currently active factor weights | — |
-| `GET /api/statistics/` | Summary KPIs, 5-tier distribution, land-type & region averages, Top 10 sites | Optional `min_score`, `max_score`, `region`, `land_type` |
-| `GET /api/export/` | Download filtered results as CSV or JSON | `format=csv\|json`, `min_score`, `max_score`, `region`, `land_type` |
-| `POST /api/sites/upload/` | Upload and score a `.csv` site dataset (max 5 MB) | Multipart form field: `file` |
-
-### Example `POST /api/analyze/` Request & Response
-
-**Request:**
-```json
-{
-  "weights": {
-    "solar": 0.45,
-    "area": 0.25,
-    "grid": 0.15,
-    "slope": 0.10,
-    "infrastructure": 0.05
-  },
-  "persist": false
-}
-```
-
-**Response (`200 OK`):**
-```json
-{
-  "persisted": false,
-  "weights_used": {
-    "solar": 0.45,
-    "area": 0.25,
-    "grid": 0.15,
-    "slope": 0.1,
-    "infrastructure": 0.05
-  },
-  "total_sites": 50,
-  "average_score": 90.41,
-  "results": [
-    {
-      "site_id": 4,
-      "site_name": "Udumalpet Solar Park",
-      "total_suitability_score": 100.0,
-      "category": "Excellent",
-      "rank": 1,
-      "estimated_capacity_mw": 7.8
-    }
-  ]
-}
-```
-
----
-
-## Key Design Decisions & Security
-
-- **Deterministic Latest-Score & Competition Ranking:** Latest results are resolved via `(-analysis_timestamp, -result_id)` to avoid 1-second `TIMESTAMP` ties, and `_assign_ranks()` uses competition ranking (`1, 1, 3...`) matching MySQL's `get_site_rank()`.
-- **SQL & CSV Injection Protection:** All database access uses parameterized Django ORM queries and whitelisted `sort_by` fields; CSV exports escape cells starting with `=`, `+`, `-`, `@`, `\t`, or `\r`.
-- **Stateless Preview vs. Persisted Analysis:** `POST /api/analyze/` supports `persist: false` for non-destructive what-if exploration and `persist: true` to record a new `analysis_results` snapshot and invalidate cached statistics.
-
----
-
-## Known Limitations & Future Improvements
-
-- **Point-Based Geometries:** Sites are currently modeled as `[latitude, longitude]` centroids rather than true parcel polygons (`GeoJSON` / `POLYGON`).
-- **In-Memory Statistics & Filtering:** Suitable for hundreds to a few thousand sites; scaling to `100k+` parcels would benefit from MySQL Spatial / PostGIS (`ST_Contains`, `SPATIAL INDEX`), Redis caching, and database-side aggregation queries.
-- **Single-Tenant Configuration:** Adding JWT/OAuth2 authentication and per-user saved scenarios would support multi-team enterprise workflows.
-- **Deployment & CI/CD:** Add `Dockerfile`s, `docker-compose.yml`, and GitHub Actions pipelines to automate testing and deployment.
+- **Multi-Tenant Role Isolation:** Authentication currently uses shared Django user accounts with JWT; per-user private saved weight scenarios and granular RBAC permissions can be added on top of `AnalysisParameterModel`.
+- **Automated CI/CD & E2E Pipeline:** Container builds run automatically via Railway on push, while Playwright/Cypress E2E tests and GitHub Actions CI workflows remain future additions.
+- **Tile Quota & Rate Limiting:** External Esri basemaps depend on public ArcGIS Online availability; production high-traffic rollouts should cache or proxy tiles and add DRF throttling on write endpoints.
