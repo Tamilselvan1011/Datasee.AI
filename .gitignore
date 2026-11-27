@@ -1,0 +1,30 @@
+# Excluded local environment & planning guides
+venv/
+BACKEND_DJANGO_DEVELOPMENT_GUIDE.md
+FRONTEND_ANGULAR_DEVELOPMENT_GUIDE.md
+INTERVIEW_WALKTHROUGH_GUIDE.md
+PROJECT_DEVELOPMENT_GUIDE.md
+
+# Secrets & local environment variables
+.env
+**/.env
+*.key
+*.pem
+
+# Python / Django
+__pycache__/
+*.py[cod]
+*$py.class
+*.sqlite3
+Backend/datasee_backend/media/
+
+# Node / Angular
+node_modules/
+Frontend/node_modules/
+Frontend/dist/
+Frontend/.angular/
+Frontend/coverage/
+
+# OS & Editor files
+.DS_Store
+Thumbs.db

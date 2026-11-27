@@ -1,0 +1,136 @@
+@if (!auth.isAuthenticated()) {
+  <app-auth-screen
+    [busy]="authBusy()"
+    [errorMessage]="authError()"
+    (loginSubmit)="onLoginSubmit($event)"
+  ></app-auth-screen>
+} @else {
+  <div class="app-shell">
+    <app-navbar
+      [activeTab]="activeTab()"
+      [pinnedCount]="pinnedIds().length"
+      [isEditing]="editingSite() !== null"
+      [health]="health()"
+      [currentUser]="auth.currentUser()"
+      (tabChange)="onTabChange($event)"
+      (openUpload)="onOpenUploadModal()"
+      (exportRequested)="onExport($event)"
+      (logout)="onLogout()"
+    ></app-navbar>
+
+    <main class="workspace-body">
+      <div class="rail-wrapper">
+        <button
+          type="button"
+          class="btn btn-sm mobile-only-rail-toggle"
+          (click)="showMobileControls.set(!showMobileControls())"
+        >
+          <span>
+            {{ showMobileControls() ? 'Hide Filters & Weights' : 'Filters & Weight Tuner' }}
+          </span>
+          <span class="mobile-rail-badge">{{ sites().length }} sites</span>
+        </button>
+
+        <aside class="control-rail" [class.mobile-hidden]="!showMobileControls()">
+          <app-filter-sidebar
+            [filters]="filters()"
+            [availableRegions]="availableRegions()"
+            [availableLandTypes]="availableLandTypes()"
+            [resultCount]="sites().length"
+            (filtersChange)="onFiltersChange($event)"
+          ></app-filter-sidebar>
+
+          <app-weight-tuner
+            [weights]="activeWeights()"
+            [busy]="analyzing()"
+            (recalculate)="onRecalculate($event)"
+          ></app-weight-tuner>
+        </aside>
+      </div>
+
+      <section class="main-stage">
+        @if (errorMessage()) {
+          <div class="alert-banner alert-error">
+            <span>{{ errorMessage() }}</span>
+            <button type="button" class="btn btn-sm" (click)="refreshData()">Retry</button>
+          </div>
+        }
+
+        @if (statusMessage()) {
+          <div class="alert-banner alert-info">
+            <span>{{ statusMessage() }}</span>
+            <button type="button" class="btn btn-sm" (click)="statusMessage.set('')">Dismiss</button>
+          </div>
+        }
+
+        <div [style.display]="activeTab() === 'map' ? 'block' : 'none'">
+          <app-solar-map
+            [sites]="sites()"
+            [selectedSiteId]="selectedSite()?.site_id ?? null"
+            [focusSite]="focusSite()"
+            [visible]="activeTab() === 'map'"
+            [polygonSummary]="polygonSummary()"
+            (siteSelected)="onSelectSite($event)"
+            (polygonSubmitted)="onPolygonSubmitted($event)"
+            (polygonCleared)="polygonSummary.set(null)"
+          ></app-solar-map>
+        </div>
+
+        @if (activeTab() === 'dashboard') {
+          <app-analytics-dashboard
+            [stats]="stats()"
+            [pinnedIds]="pinnedIds()"
+            (inspectSite)="onSelectSite($event)"
+            (editSite)="onStartEditSite($event)"
+            (locateSite)="onLocateOnMap($event)"
+            (togglePin)="onTogglePin($event)"
+          ></app-analytics-dashboard>
+        }
+
+        @if (activeTab() === 'compare') {
+          <app-site-compare
+            [allSites]="allSites().length ? allSites() : sites()"
+            [pinnedIds]="pinnedIds()"
+            (addPin)="onTogglePin($event)"
+            (removePin)="onTogglePin($event)"
+            (clearAll)="pinnedIds.set([])"
+          ></app-site-compare>
+        }
+
+        @if (activeTab() === 'manage') {
+          <app-site-form
+            [editingSite]="editingSite()"
+            [allSites]="allSites().length ? allSites() : sites()"
+            [availableRegions]="availableRegions()"
+            [availableLandTypes]="availableLandTypes()"
+            [saving]="savingSite()"
+            [errorMessage]="siteFormError()"
+            (save)="onSaveSite($event)"
+            (deleteSite)="onDeleteSite($event)"
+            (selectSiteToEdit)="onSelectSiteIdToEdit($event)"
+            (switchToCreate)="onSwitchToCreate()"
+            (cancel)="activeTab.set('map')"
+          ></app-site-form>
+        }
+      </section>
+    </main>
+
+    <app-site-detail-drawer
+      [site]="selectedSite()"
+      [isPinned]="selectedSite() ? pinnedIds().includes(selectedSite()!.site_id) : false"
+      (close)="selectedSite.set(null)"
+      (locateOnMap)="onLocateOnMap($event)"
+      (editSite)="onStartEditSite($event)"
+      (togglePin)="onTogglePin($event)"
+    ></app-site-detail-drawer>
+
+    @if (showUploadModal()) {
+      <app-csv-upload-modal
+        [uploading]="uploading()"
+        [errorMessage]="uploadError()"
+        (close)="showUploadModal.set(false)"
+        (upload)="onUploadCsv($event)"
+      ></app-csv-upload-modal>
+    }
+  </div>
+}
