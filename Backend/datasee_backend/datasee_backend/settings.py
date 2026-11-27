@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load environment variables from .env if present
-load_dotenv(BASE_DIR / '.env')
+load_dotenv(BASE_DIR / '.env', override=True)
 
 # Detect test execution so managed/unmanaged schema and isolated test DB work seamlessly
 TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
