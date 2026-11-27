@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, HostListener, Input, Output, inject } from '@angular/core';
 import { AuthUser, HealthResponse } from '../../models/solar-site.model';
 
 export type AppViewTab = 'map' | 'dashboard' | 'compare' | 'manage';
@@ -78,25 +78,56 @@ export type AppViewTab = 'map' | 'dashboard' | 'compare' | 'manage';
         </button>
       </nav>
 
-      <!-- Desktop inline actions -->
+      <!-- Desktop right-aligned status, Data dropdown & Logout -->
       <div class="nav-actions desktop-actions">
         <span class="health-pill" title="Backend API & MySQL status">
           <span class="health-dot" [class.offline]="!health || health.status !== 'ok'"></span>
           @if (health && health.status === 'ok') {
-            API Online &bull; {{ health.sites_count }} sites
+            {{ health.sites_count }} sites
           } @else {
-            API Offline
+            Offline
           }
         </span>
-        <button type="button" class="btn btn-ghost-dark btn-sm" (click)="openUpload.emit()">
-          Upload CSV
-        </button>
-        <button type="button" class="btn btn-ghost-dark btn-sm" (click)="exportRequested.emit('csv')">
-          Export CSV
-        </button>
-        <button type="button" class="btn btn-solar btn-sm" (click)="exportRequested.emit('json')">
-          Export JSON
-        </button>
+
+        <div class="nav-dropdown-wrap">
+          <button
+            type="button"
+            class="btn btn-solar btn-sm"
+            (click)="dataMenuOpen = !dataMenuOpen"
+            [attr.aria-expanded]="dataMenuOpen"
+          >
+            Upload / Export {{ dataMenuOpen ? '▲' : '▾' }}
+          </button>
+
+          @if (dataMenuOpen) {
+            <div class="nav-dropdown-menu" role="menu">
+              <button
+                type="button"
+                class="nav-dropdown-item"
+                role="menuitem"
+                (click)="dataMenuOpen = false; openUpload.emit()"
+              >
+                Upload CSV Dataset
+              </button>
+              <button
+                type="button"
+                class="nav-dropdown-item"
+                role="menuitem"
+                (click)="dataMenuOpen = false; exportRequested.emit('csv')"
+              >
+                Export Results (CSV)
+              </button>
+              <button
+                type="button"
+                class="nav-dropdown-item"
+                role="menuitem"
+                (click)="dataMenuOpen = false; exportRequested.emit('json')"
+              >
+                Export Results (JSON)
+              </button>
+            </div>
+          }
+        </div>
 
         @if (currentUser) {
           <span class="health-pill" title="Signed-in user">
@@ -162,6 +193,8 @@ export type AppViewTab = 'map' | 'dashboard' | 'compare' | 'manage';
   `,
 })
 export class NavbarComponent {
+  private readonly hostRef = inject(ElementRef<HTMLElement>);
+
   @Input() activeTab: AppViewTab = 'map';
   @Input() pinnedCount = 0;
   @Input() isEditing = false;
@@ -173,9 +206,19 @@ export class NavbarComponent {
   @Output() exportRequested = new EventEmitter<'csv' | 'json'>();
   @Output() logout = new EventEmitter<void>();
 
+  dataMenuOpen = false;
   mobileMenuOpen = false;
 
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event): void {
+    if (!this.hostRef.nativeElement.contains(event.target as Node)) {
+      this.dataMenuOpen = false;
+      this.mobileMenuOpen = false;
+    }
+  }
+
   selectTab(tab: AppViewTab): void {
+    this.dataMenuOpen = false;
     this.mobileMenuOpen = false;
     this.tabChange.emit(tab);
   }

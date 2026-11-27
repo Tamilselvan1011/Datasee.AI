@@ -1,4 +1,12 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  EventEmitter,
+  Input,
+  Output,
+  ViewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LoginPayload } from '../../models/solar-site.model';
 
@@ -9,18 +17,18 @@ import { LoginPayload } from '../../models/solar-site.model';
   template: `
     <div class="auth-page">
       <video
+        #bgVideo
         class="auth-bg-video"
-        autoplay
-        muted
-        loop
-        playsinline
+        src="https://datasee-ai-public-assets.s3.ap-south-1.amazonaws.com/datasee_website/videos/hero.mp4"
         poster="datasee-hero-poster.png"
-      >
-        <source
-          src="https://datasee-ai-public-assets.s3.ap-south-1.amazonaws.com/datasee_website/videos/hero.mp4"
-          type="video/mp4"
-        />
-      </video>
+        [autoplay]="true"
+        [muted]="true"
+        [loop]="true"
+        [playsInline]="true"
+        preload="auto"
+        (loadeddata)="ensureVideoPlays()"
+        (canplay)="ensureVideoPlays()"
+      ></video>
       <div class="auth-bg-scrim"></div>
 
       <div class="auth-layout">
@@ -144,7 +152,9 @@ import { LoginPayload } from '../../models/solar-site.model';
     </div>
   `,
 })
-export class AuthScreenComponent {
+export class AuthScreenComponent implements AfterViewInit {
+  @ViewChild('bgVideo') bgVideo?: ElementRef<HTMLVideoElement>;
+
   @Input() busy = false;
   @Input() errorMessage = '';
 
@@ -153,6 +163,25 @@ export class AuthScreenComponent {
   username = '';
   password = '';
   showPassword = false;
+
+  ngAfterViewInit(): void {
+    this.ensureVideoPlays();
+  }
+
+  ensureVideoPlays(): void {
+    const video = this.bgVideo?.nativeElement;
+    if (!video) {
+      return;
+    }
+    video.muted = true;
+    video.defaultMuted = true;
+    const playPromise = video.play?.();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(() => {
+        // Ignore browser autoplay rejection in headless tests
+      });
+    }
+  }
 
   submit(): void {
     this.loginSubmit.emit({
