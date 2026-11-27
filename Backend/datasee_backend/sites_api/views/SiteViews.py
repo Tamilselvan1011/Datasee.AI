@@ -179,14 +179,14 @@ class SiteDetailView(APIView):
 
 
 class SiteUploadView(APIView):
-    """POST /api/sites/upload/ — Authenticated CSV dataset import and scoring."""
+    """POST /api/sites/upload/ — Authenticated CSV dataset preview or import & scoring."""
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
     @extend_schema(
         request=SiteUploadSerializer,
-        responses={201: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT},
+        responses={200: OpenApiTypes.OBJECT, 201: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT},
         tags=['Sites'],
     )
     def post(self, request):
@@ -195,10 +195,22 @@ class SiteUploadView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         uploaded_file = serializer.validated_data['file']
+        query_preview = str(request.query_params.get('preview', '')).lower() in ('1', 'true', 'yes')
+        preview = bool(serializer.validated_data.get('preview', False) or query_preview)
+
         try:
-            summary = import_sites_from_csv(uploaded_file)
+            summary = import_sites_from_csv(uploaded_file, preview=preview)
         except ValueError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if preview:
+            return Response(
+                {
+                    'message': 'CSV preview validated successfully. Confirm to save sites.',
+                    **summary,
+                },
+                status=status.HTTP_200_OK,
+            )
 
         return Response(
             {

@@ -127,9 +127,10 @@ export class SolarApiService {
     });
   }
 
-  uploadCsv(file: File): Observable<UploadResponse> {
+  uploadCsv(file: File, preview = false): Observable<UploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('preview', String(preview));
     return this.http.post<UploadResponse>(`${this.baseUrl}/sites/upload/`, formData);
   }
 }

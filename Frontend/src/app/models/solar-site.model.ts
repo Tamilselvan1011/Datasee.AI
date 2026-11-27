@@ -117,11 +117,34 @@ export interface HealthResponse {
   sites_count: number;
 }
 
+export interface CsvPreviewRow {
+  row_number: number;
+  action: 'create' | 'update';
+  site_id: number | null;
+  site_name: string;
+  latitude: number;
+  longitude: number;
+  area_sqm: number;
+  estimated_capacity_mw: number;
+  solar_irradiance_kwh: number;
+  grid_distance_km: number;
+  slope_degrees: number;
+  road_distance_km: number;
+  elevation_m: number;
+  land_type: string;
+  region: string;
+  total_suitability_score: number;
+  category: string;
+  color: string;
+}
+
 export interface UploadResponse {
   message: string;
+  preview?: boolean;
   processed: number;
   created: number;
   updated: number;
+  rows?: CsvPreviewRow[];
 }
 
 export interface SiteFilters {

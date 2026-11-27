@@ -1,0 +1,4 @@
+site_name,latitude,longitude,area_sqm,solar_irradiance_kwh,grid_distance_km,slope_degrees,road_distance_km,elevation_m,land_type,region
+Karur Solar Park East,10.9601,78.0766,68000,6.0,1.2,1.8,0.4,135,Open Land,Tamil Nadu
+Namakkal Plains Hub,11.2189,78.1674,54000,5.8,2.1,2.6,0.7,215,Wasteland,Tamil Nadu
+Salem Foothill Array,11.6643,78.1460,42000,5.6,3.4,4.8,1.1,278,Agricultural,Tamil Nadu

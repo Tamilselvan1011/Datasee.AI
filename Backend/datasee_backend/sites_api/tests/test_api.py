@@ -141,6 +141,19 @@ class SolarSiteApiTests(APITestCase):
         self.assertEqual(reg.status_code, status.HTTP_201_CREATED)
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {reg.data['access']}")
 
+        # Dry-run preview returns parsed rows without creating records
+        preview_file = SimpleUploadedFile('new_sites.csv', csv_bytes, content_type='text/csv')
+        preview_resp = self.client.post(
+            '/api/sites/upload/',
+            {'file': preview_file, 'preview': 'true'},
+            format='multipart',
+        )
+        self.assertEqual(preview_resp.status_code, status.HTTP_200_OK)
+        self.assertTrue(preview_resp.data['preview'])
+        self.assertEqual(preview_resp.data['created'], 1)
+        self.assertEqual(preview_resp.data['rows'][0]['action'], 'create')
+        self.assertEqual(Site.objects.count(), 50)
+
         upload2 = SimpleUploadedFile('new_sites.csv', csv_bytes, content_type='text/csv')
         response = self.client.post('/api/sites/upload/', {'file': upload2}, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

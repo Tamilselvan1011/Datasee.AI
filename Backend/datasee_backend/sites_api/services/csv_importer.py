@@ -1,12 +1,18 @@
 import csv
 from decimal import Decimal
 import io
-from typing import IO
+from typing import IO, Any
 
 from django.db import transaction
 
 from ..models import AnalysisParameter, AnalysisResult, Site
-from .scoring import DEFAULT_WEIGHTS, WEIGHT_DB_MAPPING, SuitabilityCalculator
+from .scoring import (
+    DEFAULT_WEIGHTS,
+    WEIGHT_DB_MAPPING,
+    SuitabilityCalculator,
+    estimate_capacity_mw,
+    get_score_category,
+)
 from .site_queries import get_active_weights, invalidate_stats_cache
 
 REQUIRED_CSV_COLUMNS = {
@@ -95,8 +101,7 @@ def _validate_row(row: dict[str, str], line_num: int) -> dict:
     }
 
 
-def import_sites_from_csv(file_stream: IO[str] | IO[bytes]) -> dict[str, int]:
-    """Parse, validate, upsert CSV site rows and compute initial suitability scores."""
+def _parse_csv_rows(file_stream: IO[str] | IO[bytes]) -> list[dict]:
     raw = file_stream.read()
     text = raw.decode('utf-8-sig') if isinstance(raw, bytes) else raw.lstrip('\ufeff')
     reader = csv.DictReader(io.StringIO(text))
@@ -112,9 +117,85 @@ def import_sites_from_csv(file_stream: IO[str] | IO[bytes]) -> dict[str, int]:
     parsed_rows = [_validate_row(row, idx) for idx, row in enumerate(reader, start=2)]
     if not parsed_rows:
         raise ValueError('CSV file contains no site data rows.')
+    return parsed_rows
 
+
+def _build_preview(parsed_rows: list[dict], calculator: SuitabilityCalculator) -> dict[str, Any]:
+    existing_ids = set(Site.objects.values_list('site_id', flat=True))
+    existing_name_region = {
+        (name.strip().lower(), reg.strip().lower())
+        for name, reg in Site.objects.values_list('site_name', 'region')
+    }
+
+    preview_rows: list[dict[str, Any]] = []
+    will_create = 0
+    will_update = 0
+
+    for idx, item in enumerate(parsed_rows, start=1):
+        site_id = item['site_id']
+        if site_id is not None:
+            is_update = site_id in existing_ids
+        else:
+            key = (item['site_name'].strip().lower(), item['region'].strip().lower())
+            is_update = key in existing_name_region
+
+        if is_update:
+            will_update += 1
+        else:
+            will_create += 1
+
+        calc = calculator.calculate(
+            {
+                'solar_irradiance_kwh': float(item['solar_irradiance_kwh']),
+                'area_sqm': int(item['area_sqm']),
+                'grid_distance_km': float(item['grid_distance_km']),
+                'slope_degrees': float(item['slope_degrees']),
+                'road_distance_km': float(item['road_distance_km']),
+            }
+        )
+        total = calc['total_suitability_score']
+        cat = get_score_category(total)
+        preview_rows.append(
+            {
+                'row_number': idx,
+                'action': 'update' if is_update else 'create',
+                'site_id': site_id,
+                'site_name': item['site_name'],
+                'latitude': float(item['latitude']),
+                'longitude': float(item['longitude']),
+                'area_sqm': int(item['area_sqm']),
+                'estimated_capacity_mw': estimate_capacity_mw(item['area_sqm']),
+                'solar_irradiance_kwh': float(item['solar_irradiance_kwh']),
+                'grid_distance_km': float(item['grid_distance_km']),
+                'slope_degrees': float(item['slope_degrees']),
+                'road_distance_km': float(item['road_distance_km']),
+                'elevation_m': int(item['elevation_m']),
+                'land_type': item['land_type'],
+                'region': item['region'],
+                'total_suitability_score': total,
+                'category': cat['category'],
+                'color': cat['color'],
+            }
+        )
+
+    return {
+        'preview': True,
+        'processed': len(parsed_rows),
+        'created': will_create,
+        'updated': will_update,
+        'rows': preview_rows,
+    }
+
+
+def import_sites_from_csv(file_stream: IO[str] | IO[bytes], preview: bool = False) -> dict[str, Any]:
+    """Parse, validate, preview or upsert CSV site rows and compute suitability scores."""
+    parsed_rows = _parse_csv_rows(file_stream)
     weights = get_active_weights()
     calculator = SuitabilityCalculator(weights)
+
+    if preview:
+        return _build_preview(parsed_rows, calculator)
+
     snapshot = {
         'solar_weight': round(float(weights['solar']), 3),
         'area_weight': round(float(weights['area']), 3),
@@ -171,6 +252,7 @@ def import_sites_from_csv(file_stream: IO[str] | IO[bytes]) -> dict[str, int]:
 
     invalidate_stats_cache()
     return {
+        'preview': False,
         'processed': len(parsed_rows),
         'created': created_count,
         'updated': updated_count,

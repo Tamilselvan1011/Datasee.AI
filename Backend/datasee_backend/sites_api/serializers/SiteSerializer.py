@@ -40,9 +40,10 @@ class PolygonAnalyzeSerializer(serializers.Serializer):
 
 
 class SiteUploadSerializer(serializers.Serializer):
-    """Multipart CSV upload payload for POST /api/sites/upload."""
+    """Multipart CSV upload payload for POST /api/sites/upload/."""
 
     file = serializers.FileField()
+    preview = serializers.BooleanField(default=False, required=False)
 
     def validate_file(self, uploaded_file):
         name = (uploaded_file.name or '').lower()

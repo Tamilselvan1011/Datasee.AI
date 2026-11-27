@@ -19,6 +19,7 @@ import {
   SitePayload,
   SolarSite,
   StatisticsResponse,
+  UploadResponse,
   WeightConfig,
 } from './models/solar-site.model';
 import { AuthService } from './services/auth.service';
@@ -85,6 +86,8 @@ export class App implements OnInit {
   readonly savingSite = signal(false);
   readonly siteFormError = signal('');
   readonly uploading = signal(false);
+  readonly previewingCsv = signal(false);
+  readonly csvPreviewData = signal<UploadResponse | null>(null);
   readonly showUploadModal = signal(false);
   readonly uploadError = signal('');
   readonly authBusy = signal(false);
@@ -235,6 +238,7 @@ export class App implements OnInit {
 
   onOpenUploadModal(): void {
     this.uploadError.set('');
+    this.csvPreviewData.set(null);
     this.showUploadModal.set(true);
   }
 
@@ -349,12 +353,30 @@ export class App implements OnInit {
     });
   }
 
+  onPreviewCsv(file: File): void {
+    this.previewingCsv.set(true);
+    this.uploadError.set('');
+    this.csvPreviewData.set(null);
+    this.api.uploadCsv(file, true).subscribe({
+      next: (res) => {
+        this.previewingCsv.set(false);
+        this.csvPreviewData.set(res);
+      },
+      error: (err) => {
+        this.previewingCsv.set(false);
+        this.csvPreviewData.set(null);
+        this.uploadError.set(err?.error?.detail || err?.error?.file?.[0] || 'CSV validation failed.');
+      },
+    });
+  }
+
   onUploadCsv(file: File): void {
     this.uploading.set(true);
     this.uploadError.set('');
-    this.api.uploadCsv(file).subscribe({
+    this.api.uploadCsv(file, false).subscribe({
       next: (res) => {
         this.uploading.set(false);
+        this.csvPreviewData.set(null);
         this.showUploadModal.set(false);
         this.statusMessage.set(
           `Imported ${res.processed} sites (${res.created} created, ${res.updated} updated).`,

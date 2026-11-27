@@ -126,10 +126,14 @@
 
     @if (showUploadModal()) {
       <app-csv-upload-modal
+        [previewing]="previewingCsv()"
         [uploading]="uploading()"
         [errorMessage]="uploadError()"
-        (close)="showUploadModal.set(false)"
-        (upload)="onUploadCsv($event)"
+        [previewData]="csvPreviewData()"
+        (close)="showUploadModal.set(false); csvPreviewData.set(null)"
+        (fileCleared)="csvPreviewData.set(null); uploadError.set('')"
+        (previewRequested)="onPreviewCsv($event)"
+        (confirmUpload)="onUploadCsv($event)"
       ></app-csv-upload-modal>
     }
   </div>

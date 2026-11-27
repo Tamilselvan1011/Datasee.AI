@@ -178,4 +178,24 @@ describe('App & SolarApiService', () => {
     authService.logout();
     expect(authService.isAuthenticated()).toBe(false);
   });
+
+  it('should send preview=true to POST /api/sites/upload/ before confirming import', () => {
+    const csvFile = new File(['site_name\nTest'], 'sample.csv', { type: 'text/csv' });
+    apiService.uploadCsv(csvFile, true).subscribe((res) => {
+      expect(res.preview).toBe(true);
+      expect(res.created).toBe(1);
+    });
+
+    const uploadReq = httpMock.expectOne('http://localhost:8000/api/sites/upload/');
+    expect(uploadReq.request.method).toBe('POST');
+    expect((uploadReq.request.body as FormData).get('preview')).toBe('true');
+    uploadReq.flush({
+      message: 'CSV preview validated successfully.',
+      preview: true,
+      processed: 1,
+      created: 1,
+      updated: 0,
+      rows: [],
+    });
+  });
 });
