@@ -3,6 +3,7 @@ Django settings for datasee_backend project.
 """
 
 from datetime import timedelta
+import importlib.util
 import os
 import sys
 from pathlib import Path
@@ -31,6 +32,12 @@ ALLOWED_HOSTS = [
     for h in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
     if h.strip()
 ]
+railway_domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '').strip()
+if railway_domain and railway_domain not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(railway_domain)
+if os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('PORT'):
+    if '*' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('*')
 
 # Application definition
 INSTALLED_APPS = [
@@ -48,8 +55,15 @@ INSTALLED_APPS = [
     'sites_api',
 ]
 
+HAS_WHITENOISE = importlib.util.find_spec('whitenoise') is not None
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    *(
+        ['whitenoise.middleware.WhiteNoiseMiddleware']
+        if HAS_WHITENOISE
+        else []
+    ),
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -61,10 +75,20 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'datasee_backend.urls'
 
+# Optional built Angular SPA directory (used in Docker / Railway single-service deploy)
+_frontend_env = os.environ.get('FRONTEND_DIST_DIR', '').strip()
+_default_frontend_dir = BASE_DIR.parent.parent / 'frontend_dist'
+if _frontend_env and Path(_frontend_env).is_dir():
+    FRONTEND_DIST_DIR: Path | None = Path(_frontend_env)
+elif _default_frontend_dir.is_dir():
+    FRONTEND_DIST_DIR = _default_frontend_dir
+else:
+    FRONTEND_DIST_DIR = None
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [FRONTEND_DIST_DIR] if FRONTEND_DIST_DIR else [],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -78,17 +102,25 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'datasee_backend.wsgi.application'
 
-# Database configuration
-# Uses MySQL 8.0 in normal operation; uses fast in-memory SQLite during `manage.py test`
-# unless TEST_USE_MYSQL=true is explicitly set.
+# Database configuration (supports local .env and Railway MySQL MYSQL* env variables)
+DB_NAME = os.environ.get('DB_NAME') or os.environ.get('MYSQLDATABASE', 'solar_site_analyzer')
+DB_USER = os.environ.get('DB_USER') or os.environ.get('MYSQLUSER', 'root')
+DB_PASSWORD = (
+    os.environ.get('DB_PASSWORD')
+    if os.environ.get('DB_PASSWORD') is not None
+    else os.environ.get('MYSQLPASSWORD', '')
+)
+DB_HOST = os.environ.get('DB_HOST') or os.environ.get('MYSQLHOST', '127.0.0.1')
+DB_PORT = os.environ.get('DB_PORT') or os.environ.get('MYSQLPORT', '3306')
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_NAME', 'solar_site_analyzer'),
-        'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
-        'PORT': os.environ.get('DB_PORT', '3306'),
-        'USER': os.environ.get('DB_USER', 'root'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+        'NAME': DB_NAME,
+        'HOST': DB_HOST,
+        'PORT': DB_PORT,
+        'USER': DB_USER,
+        'PASSWORD': DB_PASSWORD,
         'OPTIONS': {
             'charset': 'utf8mb4',
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
@@ -112,12 +144,16 @@ USE_TZ = True
 
 # Static & Media files
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+if FRONTEND_DIST_DIR:
+    WHITENOISE_ROOT = FRONTEND_DIST_DIR
+
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CORS configuration for Angular frontend
+# CORS & CSRF configuration
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.environ.get(
@@ -125,6 +161,11 @@ CORS_ALLOWED_ORIGINS = [
     ).split(',')
     if origin.strip()
 ]
+if railway_domain:
+    railway_origin = f'https://{railway_domain}'
+    if railway_origin not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(railway_origin)
+    CSRF_TRUSTED_ORIGINS = [railway_origin]
 
 # In-memory cache for statistics & heavy aggregations (invalidated on analyze/upload)
 CACHES = {

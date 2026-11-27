@@ -1,0 +1,12 @@
+venv/
+**/.env
+*.sqlite3
+**/__pycache__/
+**/*.py[cod]
+**/node_modules/
+Frontend/dist/
+Frontend/.angular/
+Frontend/coverage/
+.git/
+*.md
+!README.md
